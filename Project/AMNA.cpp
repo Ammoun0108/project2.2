@@ -1,93 +1,57 @@
-#include <iostream>
-#include <unordered_map>
-#include <string>
-#include"Room.h"
+// Written by Amna Ben Abdelkader:
+// This project is an interactive text-based adventure game set inside an Egyptian pyramid. 
+//The player explores various rooms, solving riddles, interacting with items and characters (such as a cat), and unlocking doors to progress. 
+// The objective is to reach the treasure room by overcoming challenges, including taking and giving items, answering a riddle, and navigating through locked doors. 
 
-using namespace std;
 
-// Main game loop
+#include "room.h"  // Includes the room header file to use the room class and its functions.
+
 int main() {
-    string input, direction;
-    bool hasKey = false; // Flag to check if the player has the key
+    // Room initialization with names and descriptions.
+    room outside("Outside the Pyramid", "A vast desert with a lake to the right. The pyramid entrance is ahead.");
+    room lake("Lake", "A calm lake with a water bucket next to it.");
+    room mainRoom("Main Room", "The central chamber of the pyramid with three doors: left, right, and north.");
+    room closeEndRoom("Closed-End Room", "A dead-end with no exit.");
+    room snakeRoom("Snake Room", "A room full of snakes! You can't go further. Sorry, you are dead.");
+    room northRoom("North Room", "A chamber with four doors and a thirsty cat next to a mummy case.");
+    room treasureRoom("Treasure Room", "An Egyptian dwarf guards the final challenge.", "riddle", true, answerRiddle);
+    room blackCatRoom("Black Cat Room", "A dark chamber with a black cat sitting on a pedestal. It watches you with glowing eyes.", "", false, blackCatCurse);
+    room mysteriousChamber("Mysterious Chamber", "An eerie room with glowing hieroglyphs and an unknown presence.", "", false, mysteriousChamberAction);
 
-    // Creating Room objects
-    Room outside("Outside the Pyramid", "A vast desert with a lake to the right. The pyramid entrance is ahead.");
-    Room lake("Lake", "A calm lake with a water bucket next to it.");
-    Room mainRoom("Main Room", "The central chamber of the pyramid with three doors: left, right, and north.");
-    Room closeEndRoom("Closed-End Room", "A dead-end with no exit.");
-    Room snakeRoom("Snake Room", "A room full of snakes! You can't go further. Sorry, you are dead.");
-    Room northRoom("North Room", "A chamber with four doors and a thirsty cat next to a mummy case.");
-    Room treasureRoom("Treasure Room", "An Egyptian dwarf guards the final challenge.");
-
-    // Setting up room neighbors
+    // Adding neighbors to rooms (creating the structure of the pyramid).
     outside.addNeighbor("right", &lake);
     outside.addNeighbor("north", &mainRoom);
-
     lake.addNeighbor("left", &outside);
-
     mainRoom.addNeighbor("right", &closeEndRoom);
     closeEndRoom.addNeighbor("left", &mainRoom);
     mainRoom.addNeighbor("left", &snakeRoom);
     mainRoom.addNeighbor("north", &northRoom);
     mainRoom.addNeighbor("south", &outside);
-
     northRoom.addNeighbor("south", &mainRoom);
+    northRoom.addNeighbor("north", &treasureRoom);
+    northRoom.addNeighbor("right", &blackCatRoom);
+    northRoom.addNeighbor("left", &mysteriousChamber);
 
-    // Starting position
-    Room* currentRoom = &outside;
-    currentRoom->describe();
-   
+    room* currentRoom = &outside;  // Starting room is "Outside the Pyramid."
+    currentRoom->describe();  // Describe the starting room.
 
-    while (true) {
-        cout << "\nWhat do you want to do? (move [direction], take bucket, give water, open case, answer dwarf, quit): ";
-        getline(cin, input);
+    string input;
+    while (true) {  // Main game loop.
+        cout << "\nWhat do you want to do? (go [direction], take [item], give [item], quit): ";
+        getline(cin, input);  // Get the player's input.
 
-        if (input.substr(0, 5) == "move ") {
-            direction = input.substr(5);
-            Room* nextRoom = currentRoom->getNeighbor(direction);
-            if (nextRoom != nullptr) {
-                currentRoom = nextRoom;
-                currentRoom->describe();
-                
-            }
+        if (input.rfind("go ", 0) == 0) {  // If the player wants to move.
+            moveToRoom(currentRoom, currentRoom->getNeighbor(input.substr(3)));
         }
-        else if (input == "take bucket" && currentRoom == &lake) {
-            lake.hasWaterBucket = true;
-            cout << "You picked up the water bucket." << endl;
-        }
-        else if (input == "give water" && currentRoom == &northRoom && lake.hasWaterBucket) {
-            northRoom.catFed = true;
-            cout << "You gave water to the cat. The cat gives you a key!" << endl;
-            hasKey = true;
-        }
-        else if (input == "open case" && currentRoom == &northRoom && hasKey) {
-            cout << "You unlocked the mummy case! Inside is a hidden passage forward." << endl;
-            northRoom.addNeighbor("north", &treasureRoom);
-        }
-        else if (input == "answer dwarf" && currentRoom == &treasureRoom) {
-            string answer1, answer2;
-            cout << "What is the capital of Egypt? ";
-            cin >> answer1;
-            cout << "Who was the most famous Egyptian queen? ";
-            cin >> answer2;
-            if (answer1 == "Cairo" && answer2 == "Cleopatra") {
-                cout << "Correct! The treasure is yours! You win!" << endl;
-                break;
-            }
-            else {
-                cout << "Wrong answers! The dwarf kicks you out!" << endl;
-                currentRoom = &northRoom;
-            }
-        }
-        else if (input == "quit") {
+        else if (input == "quit") {  // If the player wants to quit.
             cout << "Thanks for playing!" << endl;
-            break;
+            break;  // Exit the game.
         }
         else {
-            cout << "Invalid command." << endl;
+            currentRoom->interact(input);  // If it's an item interaction, handle it.
         }
     }
 
-    return 0;
+    return 0;  // End of the program.
 }
 
