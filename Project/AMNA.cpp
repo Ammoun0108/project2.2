@@ -7,6 +7,16 @@
 #include "room.h"  // Includes the room header file to use the room class and its functions.
 
 int main() {
+    // Welcome the player
+    cout << "Welcome to the Pyramid Adventure!" << endl;
+
+    // Ask for the player's name
+    cout << "What is your name? ";
+    string playerName;
+    getline(cin, playerName);
+
+    // Greet the player by their name
+    cout << "Hello, " << playerName << "! Get ready for your adventure." << endl;
     // Room initialization with names and descriptions.
     room outside("Outside the Pyramid", "A vast desert with a lake to the right. The pyramid entrance is ahead.");
     room lake("Lake", "A calm lake with a water bucket next to it.");
