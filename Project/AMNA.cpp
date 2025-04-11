@@ -42,6 +42,9 @@ int main() {
     northRoom.addNeighbor("right", &blackCatRoom);
     northRoom.addNeighbor("left", &mysteriousChamber);
 
+    blackCatRoom.addNeighbor("left", &northRoom);
+    mysteriousChamber.addNeighbor("right", &northRoom);
+
     room* currentRoom = &outside;  // Starting room is "Outside the Pyramid."
     currentRoom->describe();  // Describe the starting room.
 
