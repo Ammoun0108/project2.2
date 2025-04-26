@@ -1,70 +1,199 @@
-// Written by Amna Ben Abdelkader:
-// This project is an interactive text-based adventure game set inside an Egyptian pyramid. 
-//The player explores various rooms, solving riddles, interacting with items and characters (such as a cat), and unlocking doors to progress. 
-// The objective is to reach the treasure room by overcoming challenges, including taking and giving items, answering a riddle, and navigating through locked doors. 
 
 
-#include "room.h"  // Includes the room header file to use the room class and its functions.
+// Written by Amna Ben Abdelkader
+// Interactive text-based adventure game set inside an Egyptian pyramid.
+// The player explores rooms, picks up and uses items, solves riddles, and interacts with characters.
+// The objective is to unlock the treasure room and win the game.
 
-int main() {
-    // Welcome the player
-    cout << "Welcome to the Pyramid Adventure!" << endl;
+#include <iostream>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include "Item.cpp"
+#include "Player.cpp"
+#include "Room.cpp"
 
-    // Ask for the player's name
-    cout << "What is your name? ";
-    string playerName;
-    getline(cin, playerName);
+using namespace std;
 
-    // Greet the player by their name
-    cout << "Hello, " << playerName << "! Get ready for your adventure." << endl;
-    // Room initialization with names and descriptions.
-    room outside("Outside the Pyramid", "A vast desert with a lake to the right. The pyramid entrance is ahead.");
-    room lake("Lake", "A calm lake with a water bucket next to it.");
-    room mainRoom("Main Room", "The central chamber of the pyramid with three doors: left, right, and north.");
-    room closeEndRoom("Closed-End Room", "A dead-end with no exit.");
-    room snakeRoom("Snake Room", "A room full of snakes! You can't go further. Sorry, you are dead.");
-    room northRoom("North Room", "A chamber with four doors and a thirsty cat next to a mummy case.");
-    room treasureRoom("Treasure Room", "An Egyptian dwarf guards the final challenge.", "riddle", true, answerRiddle);
-    room blackCatRoom("Black Cat Room", "A dark chamber with a black cat sitting on a pedestal. It watches you with glowing eyes.", "", false, blackCatCurse);
-    room mysteriousChamber("Mysterious Chamber", "An eerie room with glowing hieroglyphs and an unknown presence.", "", false, mysteriousChamberAction);
+// Special action when interacting with the cat in the North Room
+void catAction(Player* player) {
+    cout << "A  black cat sits in front of you near the north door!" << endl;
+    if (player->hasItem("water bucket")) {
+        cout << "The cat glances at your water bucket and meows softly. Maybe it wants you to leave it here..." << endl;
+    }
+    else {
+        if (!player->hasItem("key"))
+        cout << "The cat looks thirsty. Maybe it wants water." << endl;
+    }
+}
 
-    // Adding neighbors to rooms (creating the structure of the pyramid).
-    outside.addNeighbor("right", &lake);
-    outside.addNeighbor("north", &mainRoom);
-    lake.addNeighbor("left", &outside);
-    mainRoom.addNeighbor("right", &closeEndRoom);
-    closeEndRoom.addNeighbor("left", &mainRoom);
-    mainRoom.addNeighbor("left", &snakeRoom);
-    mainRoom.addNeighbor("north", &northRoom);
-    mainRoom.addNeighbor("south", &outside);
-    northRoom.addNeighbor("south", &mainRoom);
-    northRoom.addNeighbor("north", &treasureRoom);
-    northRoom.addNeighbor("right", &blackCatRoom);
-    northRoom.addNeighbor("left", &mysteriousChamber);
-
-    blackCatRoom.addNeighbor("left", &northRoom);
-    mysteriousChamber.addNeighbor("right", &northRoom);
-
-    room* currentRoom = &outside;  // Starting room is "Outside the Pyramid."
-    currentRoom->describe();  // Describe the starting room.
-
-    string input;
-    while (true) {  // Main game loop.
-        cout << "\nWhat do you want to do? (go [direction], take [item], give [item], quit): ";
-        getline(cin, input);  // Get the player's input.
-
-        if (input.rfind("go ", 0) == 0) {  // If the player wants to move.
-            moveToRoom(currentRoom, currentRoom->getNeighbor(input.substr(3)));
-        }
-        else if (input == "quit") {  // If the player wants to quit.
-            cout << "Thanks for playing!" << endl;
-            break;  // Exit the game.
-        }
-        else {
-            currentRoom->interact(input);  // If it's an item interaction, handle it.
-        }
+// Special action for the treasure room: the player must answer riddles and have the correct items
+void winRoomAction(Player* player) {
+    if (!player->hasItem("key")) {
+        cout << "The door is locked. You need a key to enter." << endl;
+        return;
     }
 
-    return 0;  // End of the program.
+    cout << "A small dwarf blocks your path." << endl;
+    cout << "Dwarf: First, answer my riddles." << endl;
+
+    cout << "Dwarf: What is the capital of Egypt? ";
+    string answer1;
+    getline(cin, answer1);
+
+    cout << "Dwarf: Who was the most famous Egyptian queen? ";
+    string answer2;
+    getline(cin, answer2);
+
+    if (answer1 != "Cairo" || answer2 != "Cleopatra") {
+        cout << "Dwarf: Wrong answers! You shall not pass!" << endl;
+        return;
+    }
+
+    cout << "Dwarf: Hmm... impressive. Now let's see if you are truly worthy." << endl;
+
+    if (player->hasItem("coin") && player->hasItem("torch")) {
+        cout << "The dwarf nods and steps aside. You enter the treasure room." << endl;
+        cout << "Congratulations, you win!" << endl;
+        exit(0);
+    }
+    else {
+        cout << "Dwarf: You lack the items I seek. Come back with a coin and a torch." << endl;
+    }
+}
+
+// Handle all player commands like moving, picking up, dropping, interacting
+void handleCommand(const string& input, Room*& currentRoom, Player& player) {
+    static bool catGaveKey = false; // Tracks if the cat already gave the key
+
+    if (input == "quit") {
+        cout << "Thanks for playing!" << endl;
+        exit(0);
+    }
+    else if (input == "inventory") {
+        player.viewInventory();
+    }
+    else if (input == "help") {
+        player.listCommands();
+    }
+    else if (input.rfind("go ", 0) == 0) { // Movement command
+        string dir = input.substr(3);
+        if (currentRoom->neighbors.count(dir)) {
+            currentRoom = currentRoom->neighbors[dir];
+            currentRoom->describe(&player); // Describe the new room after moving
+            if (currentRoom->specialAction)
+                currentRoom->specialAction(&player);
+        
+        }
+        else {
+            cout << "You can't go that way." << endl;
+        }
+    }
+    else if (input.rfind("take ", 0) == 0) { // Pick up an item
+        currentRoom->takeItem(&player, input.substr(5));
+    }
+    else if (input.rfind("drop ", 0) == 0) { // Drop an item
+        string itemName = input.substr(5);
+        currentRoom->dropItem(&player, itemName);
+
+        // Special case: if the player drops the water bucket in North Room
+        if (!catGaveKey && currentRoom->name == "North Room" && itemName == "water bucket") {
+            cout << "The cat finds the water bucket you left. It drinks eagerly and drops a key in front of you!" << endl;
+            player.addItem(Item("key", "A key to unlock the treasure room."));
+            catGaveKey = true;
+        }
+    }
+    else if (input == "interact") { // Special room action
+        if (currentRoom->specialAction) {
+            currentRoom->specialAction(&player);
+        }
+        else {
+            cout << "There is nothing special here." << endl;
+        }
+    }
+    else {
+        cout << "Unknown command. Type 'help' to see available commands." << endl;
+    }
+}
+
+int main() {
+    // Greet player and get their name
+    cout << "Welcome to the Pyramid Adventure!\nWhat's your name? ";
+    string name;
+    getline(cin, name);
+    Player player(name);
+    cout << "Hi " << name << "!\nGet ready for a trip to Egypt." << endl;
+
+    // Create all rooms
+    Room outside("Outside", "You stand before an ancient pyramid. There is a lake to your right.");
+    Room lake("Lake", "A quiet lake.");
+    Room main("Main Room", "You are in the main hall. Multiple paths branch off.");
+    Room torchRoom("Vast Room", "It leads nowhere.");
+    Room closeEndRoom("Closed-End Room", "A corridor that leads nowhere.");
+    Room snakeRoom("Snake Room", "The floor is covered in snake bones. You feel uneasy.");
+    Room northRoom("North Room", "A chamber with a tomb next to a big door north.");
+    northRoom.isLocked = true;
+    Room creatureRoom("Mummy Room", "A dark room. A Mummy stares silently.");
+    Room mysteriousChamber("Mysterious Chamber", "Glowing symbols on the wall pulse faintly.");
+    Room treasureRoom("Treasure Room", "A guarded door stands before you. A dwarf watches.");
+
+    // Add items to rooms
+    lake.addItem(Item("water bucket", "A wooden bucket that can hold water."));
+    torchRoom.addItem(Item("torch", "An unlit torch. Might be useful."));
+    torchRoom.addItem(Item("knife", " A golden knife with diamonds on it"));
+    main.addItem(Item("coin", "An ancient Egyptian coin."));
+
+    // Set special actions for specific rooms
+    northRoom.specialAction = catAction;
+    treasureRoom.specialAction = winRoomAction;
+    creatureRoom.specialAction = [](Player* player) {
+        if (player->hasItem("key")) {
+            cout << "The mummy hisses. Your key vanishes! You need to quit and start again :(" << endl;
+            player->dropItem("key");
+            
+        }
+        else {
+            cout << "The mummy just watches you..." << endl;
+        }
+        };
+    mysteriousChamber.specialAction = [](Player* player) {
+        cout << "The walls glow faintly. Something about this place feels important..." << endl;
+        };
+
+    // Connect rooms together
+    outside.addNeighbor("north", &main);
+    outside.addNeighbor("right", &lake);
+    lake.addNeighbor("left", &outside);
+
+    main.addNeighbor("south", &outside);
+    main.addNeighbor("north", &northRoom);
+    main.addNeighbor("left", &torchRoom);
+    main.addNeighbor("right", &snakeRoom);
+    snakeRoom.addNeighbor("left", &main);
+    torchRoom.addNeighbor("right", &main);
+    northRoom.addNeighbor("south", &main);
+    northRoom.addNeighbor("north", &treasureRoom);
+    northRoom.addNeighbor("right", &creatureRoom);
+    northRoom.addNeighbor("left", &mysteriousChamber);
+    creatureRoom.addNeighbor("left", &northRoom);
+    mysteriousChamber.addNeighbor("right", &northRoom);
+    treasureRoom.addNeighbor("south", &northRoom);
+
+    // Start game at the outside of the pyramid
+    Room* currentRoom = &outside;
+
+    // Describe the starting room
+    cout << endl;
+    currentRoom->describe(&player);
+
+    // Main game loop
+    string input;
+    while (true) {
+        cout << "\nWhat do you want to do? (type 'help' for options): ";
+        getline(cin, input);
+        handleCommand(input, currentRoom, player);
+    }
+
+    return 0;
 }
 

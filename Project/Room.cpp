@@ -1,123 +1,65 @@
-#include "room.h"  // Includes the room header file to define the room class and functions.
+#include "Item.cpp" // Include the Item class definition
+#include "Player.cpp" // Include the Player class definition
 
-bool hasKey = false;  // Initial state of whether the player has the key (false initially).
-bool hasWaterBucket = false;  // Initial state of whether the player has the water bucket (false initially).
+#pragma once // Prevent multiple inclusions of this file
 
-// Constructor to initialize the room.
-room::room(string name, string description, string specialItem, bool isLocked, void (*specialAction)())
-    : name(name), description(description), specialItem(specialItem), isLocked(isLocked), specialAction(specialAction) {}
+// Room class represents a location inside the pyramid
+class Room {
+public:
+    string name; // Name of the room
+    string description; // Description of the room
+    unordered_map<string, Room*> neighbors; // Directions mapped to neighboring rooms
+    unordered_map<string, Item> items; // Items present in the room, mapped by item name
+    bool isLocked = false; // Flag to indicate if the room is locked
 
-// Adds a neighboring room in a specific direction.
-void room::addNeighbor(string direction, room* neighbor) {
-    neighbors[direction] = neighbor;
-}
+    // Pointer to a special action function that takes a Player pointer as parameter
+    void (*specialAction)(Player* player) = nullptr;
 
-// Retrieves the neighboring room for a given direction.
-room* room::getNeighbor(const string& direction) {
-    return neighbors.count(direction) ? neighbors[direction] : nullptr;
-}
+    // Constructor to initialize room name and description
+    Room(string n, string d) : name(n), description(d) {}
 
-// Describes the room by displaying its name and description.
-void room::describe() {
-    cout << name << ": " << description << endl;
-}
-
-// Handles interaction in the room based on the input.
-void room::interact(const string& input) {
-    if (input.rfind("take ", 0) == 0) {
-        takeItem(input.substr(5));  // Calls takeItem if input starts with "take ".
+    // Add a neighboring room in a specific direction
+    void addNeighbor(string dir, Room* room) {
+        neighbors[dir] = room;
     }
-    else if (input.rfind("give ", 0) == 0) {
-        giveItem(input.substr(5));  // Calls giveItem if input starts with "give ".
-    }
-    else {
-        cout << "Invalid action!" << endl;  // If the input is invalid.
-    }
-}
 
-// Function for taking an item from the room (water bucket in this case).
-void room::takeItem(const string& item) {
-    if (item == "water bucket" && name == "Lake") {  // Only take the water bucket if in the "Lake" room.
-        if (!hasWaterBucket) {
-            cout << "You take the water bucket. You might use it somewhere." << endl;
-            hasWaterBucket = true;  // Player now has the water bucket.
+    // Add an item to the room's item map
+    void addItem(const Item& item) {
+        items[item.name] = item;
+    }
+
+    // Describe the room to the player: print the name, description, and list items
+    void describe(Player* player) {
+        cout << name << ": " << description << endl;
+        if (!items.empty()) {
+            cout << "Items here:" << endl;
+            for (auto& pair : items) {
+                cout << "- " << pair.second.name << ": " << pair.second.description << endl;
+            }
+        }
+    }
+
+    // Let the player take an item from the room
+    void takeItem(Player* player, const string& itemName) {
+        bool response;
+        if (items.count(itemName)) {
+            response = player->addItem(items[itemName]); // Attempt to add item to player's inventory
+            if (response == 1) // Only remove from room if successfully added
+                items.erase(itemName);
         }
         else {
-            cout << "The water bucket is already taken." << endl;  // If the player already has it.
+            cout << "No such item here." << endl;
         }
     }
-    else {
-        cout << "There's no such item to take here." << endl;  // If the item isn't available in the room.
-    }
-}
 
-// Function for giving an item to the room (water in this case).
-void room::giveItem(const string& item) {
-    if (item == "water" && name == "North Room") {  // Give water to the cat in the "North Room".
-        giveWaterToCat();
+    // Let the player drop an item into the room
+    void dropItem(Player* player, const string& itemName) {
+        if (player->hasItem(itemName)) {
+            items[itemName] = player->inventory[itemName]; // Add the item to room
+            player->dropItem(itemName); // Remove item from player's inventory
+        }
+        else {
+            cout << "You don't have that item." << endl;
+        }
     }
-    else {
-        cout << "You can't give that item here." << endl;  // If giving item isn't allowed here.
-    }
-}
-
-// Function to move the player to another room.
-void moveToRoom(room*& currentRoom, room* nextRoom) {
-    if (!nextRoom) {
-        cout << "You can't go that way." << endl;  // If the next room doesn't exist.
-        return;
-    }
-    if (nextRoom->isLocked && !hasKey) {  // If the room is locked and the player doesn't have the key.
-        cout << "The treasure room is locked! You need a key." << endl;
-        return;
-    }
-    currentRoom = nextRoom;  // Moves to the next room.
-    currentRoom->describe();  // Displays the description of the new room.
-    if (currentRoom->specialAction) {
-        currentRoom->specialAction();  // Performs any special action associated with the room.
-    }
-}
-
-// Function to solve the riddle in the treasure room.
-void answerRiddle() {
-    cout << "What is the capital of Egypt? ";
-    string answer1;
-    getline(cin, answer1);
-    cout << "Who was the most famous Egyptian queen? ";
-    string answer2;
-    getline(cin, answer2);
-    if (answer1 == "Cairo" && answer2 == "Cleopatra") {  // Check if both answers are correct.
-        cout << "Correct! The treasure is yours! You win!" << endl;
-    }
-    else {
-        cout << "Wrong answers! The room collapses! You are dead!" << endl;  // Incorrect answers lead to failure.
-    }
-    exit(0);  // End the game if the riddle is answered incorrectly.
-}
-
-// Function to give water to the cat in the "North Room".
-void giveWaterToCat() {
-    if (hasWaterBucket) {  // Only give water if the player has the water bucket.
-        cout << "You give water to the thirsty cat. The cat is grateful and gives you a key!" << endl;
-        hasKey = true;  // Player receives the key from the cat.
-    }
-    else {
-        cout << "The cat looks thirsty. Maybe you should bring it something?. Dou you have it though? " << endl;
-    }
-}
-
-// Function for the curse of the black cat.
-void blackCatCurse() {
-    if (hasKey) {
-        cout << "A black cat appears and casts a spell on you! You feel the key slipping from your hands... It's gone!" << endl;
-        hasKey = false;  // The key is taken away by the curse.
-    }
-    else {
-        cout << "The black cat stares at you, but nothing happens." << endl;
-    }
-}
-
-// Function for the mysterious chamber action.
-void mysteriousChamberAction() {
-    cout << "A soft humming fills the air, but nothing seems dangerous... yet." << endl;
-}
+};
